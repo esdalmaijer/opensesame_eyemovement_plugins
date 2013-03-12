@@ -56,7 +56,7 @@ class smooth_pursuit(item.item):
 		self.bgc = experiment.background
 		self.stims = 8
 		self.allow_keyboard = 'no'
-		self.kl = []
+		self.kl = ""
 
 		# Provide a short accurate description of the items functionality
 		self.description = \
@@ -101,6 +101,10 @@ class smooth_pursuit(item.item):
 		dot to an offline canvas.
 		"""
 
+		# turn some values to floats
+		self.freq = float(self.freq)
+		self.amp = float(self.amp)
+
 		# create offline canvas
 		self.canvas = canvas(self.experiment)
 		self.canvas.set_bgcolor(self.bgc)
@@ -114,9 +118,8 @@ class smooth_pursuit(item.item):
 
 		# create keyboard object
 		if self.allow_keyboard == 'yes':
-			self.kb = keyboard(self.experiment, keylist=self.kl, timeout=None)
-			if self.kl != []:
-				self.kb.set_keylist(self.kl)
+			kl = self.kl.split(';')
+			self.kb = keyboard(self.experiment, keylist=kl, timeout=None)
 
 		# calculate vibration time (ms)
 		self.T = (1.0 / self.freq) * 1000
@@ -157,10 +160,7 @@ class smooth_pursuit(item.item):
 
 		self.set_item_onset()
 
-		# DEBUG
-		xl = []
-
-		# run until timeout
+		# run until timeout (or keypress)
 		t0 = self.time()
 		while self.time() - t0 < self.dur:
 			# show display
@@ -170,13 +170,13 @@ class smooth_pursuit(item.item):
 			y = self.sy - self.fy(self.amp,self.T,self.time())
 			self.canvas.clear()
 			self.canvas.circle(x,y,self.r,fill=True,color=self.fgc)
-			# DEBUG
-			xl.append(x)
-			#print(str(x) + "," + str(y))
-
-		# DEBUG
-		print("min x: " + str(min(xl)))
-		print("max x: " + str(max(xl)))
+			# check for keypresses
+			if self.allow_keyboard == 'yes':
+				key, presstime = self.kb.get_key(timeout=1)
+				if key:
+					self.experiment.set("response", key)
+					self.experiment.set("response_time", presstime)
+					break
 
 		# Report success
 		return True
