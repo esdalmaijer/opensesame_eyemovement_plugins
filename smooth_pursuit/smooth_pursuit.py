@@ -1,4 +1,5 @@
 """
+Author: Edwin Dalmaijer
 This file is part of OpenSesame.
 
 OpenSesame is free software: you can redistribute it and/or modify
@@ -76,15 +77,13 @@ class smooth_pursuit(item.item):
 
 		"""
 		Calculates the current value considering given amplitude,
-		vribration time (T) and time on a linear slope (e.g. a 'saw').
+		vribration time (T) and time on a linear slope.
 		"""
 
-		#prop = (((time % T)/T) - 0.5)
-		#propmod = (((time % T)/T) - 0.5) % 0.5
-
-		phase = ((time % T) / (T * 2 * math.pi)) % math.pi
-
-		return amp * (float(phase) / (0.5 * math.pi) -1.0) #amp * (((time % T)/T) - 0.5)
+		if ((time % T)/T) <= 0.5:
+			return amp * (4*((time % T)/(T)) - 1)
+		elif ((time % T)/T) > 0.5:
+			return amp * (-4*((time % T)/(T)) + 3)
 
 	def sinusoid(self,amp,T,time):
 
@@ -158,6 +157,9 @@ class smooth_pursuit(item.item):
 
 		self.set_item_onset()
 
+		# DEBUG
+		xl = []
+
 		# run until timeout
 		t0 = self.time()
 		while self.time() - t0 < self.dur:
@@ -169,7 +171,12 @@ class smooth_pursuit(item.item):
 			self.canvas.clear()
 			self.canvas.circle(x,y,self.r,fill=True,color=self.fgc)
 			# DEBUG
-			print(str(x) + "," + str(y))
+			xl.append(x)
+			#print(str(x) + "," + str(y))
+
+		# DEBUG
+		print("min x: " + str(min(xl)))
+		print("max x: " + str(max(xl)))
 
 		# Report success
 		return True
