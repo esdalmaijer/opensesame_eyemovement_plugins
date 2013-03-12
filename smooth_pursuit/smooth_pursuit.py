@@ -17,12 +17,13 @@ along with OpenSesame.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 from libopensesame import item, exceptions
-from libqtopensesame import qtplugin, inline_editor
+from libqtopensesame import qtplugin
 from openexp.canvas import canvas
 from openexp.keyboard import keyboard
 from PyQt4 import QtGui, QtCore
 
 import math
+
 
 class smooth_pursuit(item.item):
 
@@ -78,18 +79,20 @@ class smooth_pursuit(item.item):
 		"""
 		Calculates the current value considering given amplitude,
 		vribration time (T) and time on a linear slope.
+		FUNCTION REQUIRES FLOATS!
 		"""
 
 		if ((time % T)/T) <= 0.5:
-			return amp * (4*((time % T)/(T)) - 1)
+			return amp * (4*((time % T)/T) - 1)
 		elif ((time % T)/T) > 0.5:
-			return amp * (-4*((time % T)/(T)) + 3)
+			return amp * (-4*((time % T)/T) + 3)
 
 	def sinusoid(self,amp,T,time):
 
 		"""
 		Calculates the current value considering given amplitude,
 		vribration time (T) and time on a sinusoid.
+		FUNCTION REQUIRES FLOATS!
 		"""
 
 		return amp * math.sin(((time % T)/T) * 2 * math.pi)
@@ -101,41 +104,37 @@ class smooth_pursuit(item.item):
 		dot to an offline canvas.
 		"""
 
-		# turn some values to floats
-		self.freq = float(self.freq)
-		self.amp = float(self.amp)
-
 		# create offline canvas
 		self.canvas = canvas(self.experiment)
-		self.canvas.set_bgcolor(self.bgc)
+		self.canvas.set_bgcolor(self.get("bgc"))
 		self.canvas.clear()
 
 		# draw the stimulus
 		self.sx = self.get("width")/2
 		self.sy = self.get("height")/2
-		self.r = self.stims/2
-		self.canvas.circle(self.sx,self.sy,self.r,fill=True,color=self.fgc)
+		self.r = self.get("stims")/2
+		self.canvas.circle(self.sx,self.sy,self.r,fill=True,color=self.get("fgc"))
 
 		# create keyboard object
 		if self.allow_keyboard == 'yes':
-			kl = self.kl.split(';')
+			kl = self.get("kl").split(';')
 			self.kb = keyboard(self.experiment, keylist=kl, timeout=None)
 
 		# calculate vibration time (ms)
-		self.T = (1.0 / self.freq) * 1000
+		self.experiment.set("T", (1 / float(self.get("freq"))) * 1000)
 
 		# determine functions for stepsize
-		if self.direct == 'horizontal':
-			if self.mtype == 'sinusoid':
+		if self.get("direct") == 'horizontal':
+			if self.get("mtype") == 'sinusoid':
 				self.fx = self.sinusoid
-			elif self.mtype == 'linear':
+			elif self.get("mtype") == 'linear':
 				self.fx = self.linear
 			else:
 				self.fx = self.no_change
 				print("Error in smooth_pursuit.prepare: unknown movement type!")
 			self.fy = self.no_change
 
-		elif self.direct == 'vertical':
+		elif self.get("direct") == 'vertical':
 			if self.mtype == 'sinusoid':
 				self.fy = self.sinusoid
 			elif self.mtype == 'linear':
@@ -144,7 +143,7 @@ class smooth_pursuit(item.item):
 				self.fy = self.no_change
 				print("Error in smooth_pursuit.prepare: unknown movement type!")
 			self.fx = self.no_change
-
+		
 		# Pass the word on to the parent
 		item.item.prepare(self)
 
@@ -162,18 +161,19 @@ class smooth_pursuit(item.item):
 
 		# run until timeout (or keypress)
 		t0 = self.time()
-		while self.time() - t0 < self.dur:
+		while self.time() - t0 < self.get("dur"):
 			# show display
 			self.canvas.show()
 			# update display
-			x = self.sx - self.fx(self.amp,self.T,self.time())
-			y = self.sy - self.fy(self.amp,self.T,self.time())
+			x = self.sx - self.fx(float(self.get("amp")),float(self.get("T")),self.time())
+			y = self.sy - self.fy(float(self.get("amp")),float(self.get("T")),self.time())
 			self.canvas.clear()
-			self.canvas.circle(x,y,self.r,fill=True,color=self.fgc)
+			self.canvas.circle(x,y,self.r,fill=True,color=self.get("fgc"))
 			# check for keypresses
 			if self.allow_keyboard == 'yes':
 				key, presstime = self.kb.get_key(timeout=1)
 				if key:
+					# set response variables
 					self.experiment.set("response", key)
 					self.experiment.set("response_time", presstime)
 					break
@@ -207,11 +207,13 @@ class qtsmooth_pursuit(smooth_pursuit, qtplugin.qtplugin):
 		widget.
 		"""
 
-		# Lock the widget until we're doing creating it
+		# Lock the widget until we're done creating it
 		self.lock = True
 
 		# Pass the word on to the parent
 		qtplugin.qtplugin.init_edit_widget(self, False)
+
+		# content
 		self.add_combobox_control("mtype", "Movement type", \
 			["sinusoid","linear"], tooltip = "Type of stimulus movement")
 		self.add_combobox_control("direct", "Movement direction", \
