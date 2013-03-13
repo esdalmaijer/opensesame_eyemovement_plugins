@@ -105,11 +105,8 @@ class smooth_pursuit(item.item):
 		"""
 
 		# create offline canvas
-<<<<<<< HEAD
+
 		self.canvas = canvas(self.experiment, auto_prepare=False)
-=======
-		self.canvas = canvas(self.experiment)
->>>>>>> e51df8a98c016c7134a39327ed72264b09fd91b7
 		self.canvas.set_bgcolor(self.get("bgc"))
 		self.canvas.clear()
 
