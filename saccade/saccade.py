@@ -25,7 +25,7 @@ from PyQt4 import QtGui, QtCore
 import math
 
 
-class smooth_pursuit(item.item):
+class saccade(item.item):
 
 	"""
 	This class (the class with the same name as the module)
@@ -47,8 +47,7 @@ class smooth_pursuit(item.item):
 		"""
 
 		# The item_type should match the name of the module
-		self.item_type = "smooth_pursuit"
-		self.mtype = "sinusoid"
+		self.item_type = "saccade"
 		self.direct = "horizontal"
 		self.dur = 5000
 		self.freq = 1
@@ -61,41 +60,10 @@ class smooth_pursuit(item.item):
 
 		# Provide a short accurate description of the items functionality
 		self.description = \
-			"Moving dot stimulus for smooth pursuit eye movements"
+			"Moving dot stimulus for saccadic eye movements"
 
 		# The parent handles the rest of the contruction
 		item.item.__init__(self, name, experiment, string)
-
-	def no_change(self,amp,T,time):
-
-		"""
-		Calculates nothing, just returns 0.
-		"""
-
-		return 0
-
-	def linear(self,amp,T,time):
-
-		"""
-		Calculates the current value considering given amplitude,
-		vribration time (T) and time on a linear slope.
-		FUNCTION REQUIRES FLOATS!
-		"""
-
-		if ((time % T)/T) <= 0.5:
-			return amp * (4*((time % T)/T) - 1)
-		elif ((time % T)/T) > 0.5:
-			return amp * (-4*((time % T)/T) + 3)
-
-	def sinusoid(self,amp,T,time):
-
-		"""
-		Calculates the current value considering given amplitude,
-		vribration time (T) and time on a sinusoid.
-		FUNCTION REQUIRES FLOATS!
-		"""
-
-		return amp * math.sin(((time % T)/T) * 2 * math.pi)
 
 	def prepare(self):
 
@@ -105,44 +73,40 @@ class smooth_pursuit(item.item):
 		"""
 
 		# create offline canvas
-		self.canvas = canvas(self.experiment, auto_prepare=False)
+		self.canvas = canvas(self.experiment)
 		self.canvas.set_bgcolor(self.get("bgc"))
 		self.canvas.clear()
-
-		# draw the stimulus
-		self.sx = self.get("width")/2
-		self.sy = self.get("height")/2
-		self.r = self.get("stims")/2
-		self.canvas.circle(self.sx,self.sy,self.r,fill=True,color=self.get("fgc"))
 
 		# create keyboard object
 		if self.allow_keyboard == 'yes':
 			kl = self.get("kl").split(';')
 			self.kb = keyboard(self.experiment, keylist=kl, timeout=None)
 
+		# calculate stimulus radius
+		self.r = self.get("stims")/2
+
+		# define positions
+		if self.get("direct") == "horizontal":
+			self.positions = [
+				(self.get("width")/2 - self.get("amp"), self.get("height")/2),
+				(self.get("width")/2 + self.get("amp"), self.get("height")/2)
+				]
+
+		elif self.get("direct") == "vertical":
+			self.positions = [
+				(self.get("width")/2, self.get("height")/2 - self.get("amp")),
+				(self.get("width")/2, self.get("height")/2 + self.get("amp"))
+				]
+
+		else:
+			self.positions = [
+				(self.get("width")/2, self.get("height")/2),
+				(self.get("width")/2, self.get("height")/2)
+				]
+			print("Error in saccade.prepare: unkown direction!")
+
 		# calculate vibration time (ms)
 		self.experiment.set("T", (1 / float(self.get("freq"))) * 1000)
-
-		# determine functions for stepsize
-		if self.get("direct") == 'horizontal':
-			if self.get("mtype") == 'sinusoid':
-				self.fx = self.sinusoid
-			elif self.get("mtype") == 'linear':
-				self.fx = self.linear
-			else:
-				self.fx = self.no_change
-				print("Error in smooth_pursuit.prepare: unknown movement type!")
-			self.fy = self.no_change
-
-		elif self.get("direct") == 'vertical':
-			if self.mtype == 'sinusoid':
-				self.fy = self.sinusoid
-			elif self.mtype == 'linear':
-				self.fy = self.linear
-			else:
-				self.fy = self.no_change
-				print("Error in smooth_pursuit.prepare: unknown movement type!")
-			self.fx = self.no_change
 		
 		# Pass the word on to the parent
 		item.item.prepare(self)
@@ -160,28 +124,35 @@ class smooth_pursuit(item.item):
 		self.set_item_onset()
 
 		# run until timeout (or keypress)
+		key = None
 		t0 = self.time()
-		while self.time() - t0 < self.get("dur"):
-			# show display
-			self.canvas.show()
-			# update display
-			x = self.sx - self.fx(float(self.get("amp")),float(self.get("T")),self.time())
-			y = self.sy - self.fy(float(self.get("amp")),float(self.get("T")),self.time())
-			self.canvas.clear()
-			self.canvas.circle(x,y,self.r,fill=True,color=self.get("fgc"))
-			# check for keypresses
-			if self.allow_keyboard == 'yes':
-				key, presstime = self.kb.get_key(timeout=1)
-				if key:
-					# set response variables
-					self.experiment.set("response", key)
-					self.experiment.set("response_time", presstime)
-					break
+		while self.time() - t0 < self.get("dur") and not key:
+			for spos in self.positions:
+				# update display
+				self.canvas.clear()
+				self.canvas.circle(spos[0],spos[1],self.r,fill=True,color=self.get("fgc"))
+				# show display
+				t1 = self.canvas.show()
+				# timeout
+				if self.get("dur") - (t1-t0) > self.get("T")/2:
+					timeout = self.get("T")/2
+				else:
+					timeout = self.get("dur") - (t1-t0)
+				# check for keypresses
+				if self.allow_keyboard == 'yes':
+					key, presstime = self.kb.get_key(timeout=max(1,timeout))
+					if key:
+						# set response variables
+						self.experiment.set("response", key)
+						self.experiment.set("response_time", presstime)
+						break
+				else:
+					self.sleep(timeout=self.get("T")/2)
 
 		# Report success
 		return True
 
-class qtsmooth_pursuit(smooth_pursuit, qtplugin.qtplugin):
+class qtsaccade(saccade, qtplugin.qtplugin):
 
 	"""
 	This class (the class named qt[name of module] handles
@@ -197,7 +168,7 @@ class qtsmooth_pursuit(smooth_pursuit, qtplugin.qtplugin):
 		"""
 
 		# Pass the word on to the parents
-		smooth_pursuit.__init__(self, name, experiment, string)
+		saccade.__init__(self, name, experiment, string)
 		qtplugin.qtplugin.__init__(self, __file__)
 
 	def init_edit_widget(self):
@@ -214,8 +185,6 @@ class qtsmooth_pursuit(smooth_pursuit, qtplugin.qtplugin):
 		qtplugin.qtplugin.init_edit_widget(self, False)
 
 		# content
-		self.add_combobox_control("mtype", "Movement type", \
-			["sinusoid","linear"], tooltip = "Type of stimulus movement")
 		self.add_combobox_control("direct", "Movement direction", \
 			["horizontal","vertical"], tooltip = "Direction of the stimulus movement")
 		self.add_line_edit_control("dur", "Duration", \
