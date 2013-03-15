@@ -202,7 +202,7 @@ class qtsaccade(saccade, qtplugin.qtplugin):
 		self.add_checkbox_control('allow_keyboard', \
 			'Allow keyboard response', tooltip= \
 			'Set to allow a participant to use the keyboard')
-		self.add_line_edit_control("kl", "Allowed keys", tooltip = \
+		self.kl_line_edit_control = self.add_line_edit_control("kl", "Allowed keys", tooltip = \
 			"Names of keys participants are allowed to press, seperated by a semicolon (e.g. 'right;left')")
 
 		# Unlock
@@ -222,5 +222,6 @@ class qtsaccade(saccade, qtplugin.qtplugin):
 
 		self.lock = True
 		qtplugin.qtplugin.edit_widget(self)
+		self.kl_line_edit_control.setDisabled(self.get("allow_keyboard") == 'no')
 		self.lock = False
 		return self._edit_widget
